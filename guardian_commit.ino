@@ -40,6 +40,58 @@ Adafruit_MQTT_Subscribe Light1 = Adafruit_MQTT_Subscribe(&mqtt, AIO_USERNAME"/fe
 
 Servo left, right;
 
+int security = 0; //보호모드!
+
+int readDHT11(int *readTemp, int *readHumid){
+  int dt[82] = {0,};
+
+  //phase 1
+  digitalWrite(DHT11PIN, 1);
+  pinMode(DHT11PIN, OUTPUT);
+  delay(1);
+  digitalWrite(DHT11PIN, 0);
+  delay(20);
+  pinMode(DHT11PIN, INPUT_PULLUP);
+
+  //80ms 씩을 받는 것
+  while(1)
+    if(digitalRead(DHT11PIN) == 1) break;
+  while(1)
+    if(digitalRead(DHT11PIN) == 0) break;
+
+  //phase 2 - phase 3
+  int cnt = 0;
+  for(cnt = 0; cnt < 41 ; cnt++){
+     dt[cnt * 2] = micros();
+     while(1)
+      if(digitalRead(DHT11PIN) == 1)break;
+     dt[cnt * 2] = micros() - dt[cnt * 2];
+
+     dt[cnt * 2 + 1] = micros();
+     while(1)
+      if(digitalRead(DHT11PIN) == 0)break;
+     dt[cnt * 2 + 1] = micros() - dt[cnt * 2 + 1];
+  }
+
+  for(cnt = 1 ; cnt < 9 ; cnt++){
+    *readHumid = *readHumid << 1;
+    if(dt[cnt * 2 + 1] > 49){
+      *readHumid = *readHumid + 1;  
+    } 
+    else *readHumid = *readHumid + 0;
+  }
+
+  for(cnt = 17 ; cnt < 25 ; cnt++){
+    *readTemp = *readTemp << 1;
+    if(dt[cnt * 2 + 1] > 49){
+      *readTemp = *readTemp + 1;  
+    } 
+    else *readTemp = *readTemp + 0;
+  }
+
+  return 1;
+}
+
 void setup() {
   Serial.begin(115200);
 
@@ -114,14 +166,12 @@ void loop() {
     char allBuf[200];
     Serial.printf("Temp:%d, Humid:%d\r\n",readTemp, readHumid);
 
-    //snprintf(allBuf, sizeof(allBuf), "http://api.thingspeak.com/update?api_key=A1QBNUU4080IBIIZ&field1=%d&field2=%d", readTemp, readHumid);
+    snprintf(allBuf, sizeof(allBuf), "http://api.thingspeak.com/update?api_key=&field1=%d&field2=%d", readTemp, readHumid);
 
-    /*
     mClient.begin(allBuf);
     mClient.GET();
     mClient.getString();
     mClient.end();
-    */
   }
 
   delay(3);
