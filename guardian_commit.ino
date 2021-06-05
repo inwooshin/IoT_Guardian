@@ -15,14 +15,14 @@
 
 
 #define WLAN_SSID       "INS"             // Your SSID  //check
-#define WLAN_PASS       ""        // Your password  //check
+#define WLAN_PASS       "sksmswjstjf2!"        // Your password  //check
 
 /************************* Adafruit.io Setu p *********************************/
 
 #define AIO_SERVER      "io.adafruit.com"
 #define AIO_SERVERPORT  1883                   // use 8883 for SSL
 #define AIO_USERNAME    "EnochOf"            // Replace it with your username  //check
-#define AIO_KEY         ""   // Replace with your Project Auth Key  //check
+#define AIO_KEY         "aio_gxLk49B4d5cdJTAPuFF4Wn9lOI1b"   // Replace with your Project Auth Key  //check
 
 /************ Global State (you don't need to change this!) ******************/
 
@@ -40,7 +40,9 @@ Adafruit_MQTT_Subscribe Light1 = Adafruit_MQTT_Subscribe(&mqtt, AIO_USERNAME"/fe
 
 Servo left, right;
 
-int security = 0; //보호모드!
+void MQTT_connect();
+
+int security = 0;
 
 int readDHT11(int *readTemp, int *readHumid){
   int dt[82] = {0,};
@@ -92,7 +94,6 @@ int readDHT11(int *readTemp, int *readHumid){
   return 1;
 }
 
-
 void leftR(){
     left.write(170);
     delay(300);
@@ -106,6 +107,32 @@ void rightR(){
     right.write(90);
     delay(300);
   
+}
+
+int st = 0;
+void cho(){
+  long duration, distance;
+  digitalWrite(TRIG, LOW);
+  delayMicroseconds(2);
+  digitalWrite(TRIG, HIGH);
+  delayMicroseconds(10);
+  digitalWrite(TRIG, LOW);
+
+  duration = pulseIn (ECHO, HIGH); //물체에 반사되어돌아온 초음파의 시간을 변수에 저장합니다.
+  distance = duration * 17 / 1000; 
+
+  Serial.print(distance); //측정된 물체로부터 거리값(cm값)을 보여줍니다.
+  Serial.println(" Cm");
+
+  if(distance>80 && security == 1){
+    st++;
+    tone(buzzer, 1000, 800);
+  }
+  
+  if(st == 10000000){
+    st = 0;
+    send_webhook("Enter", "fiJoqy0cQbFzMNeMF3GX8", "", "", "");
+  }
 }
 
 void setup() {
@@ -145,11 +172,13 @@ void setup() {
   
 }
 
+int lastMs = 0;
+
 void loop() {
 
   MQTT_connect();
 
-  //cho();
+  cho();
   delay(20);
 
   Adafruit_MQTT_Subscribe *subscription = mqtt.readSubscription(1);
@@ -177,13 +206,13 @@ void loop() {
 
     int readTemp = 0;
     int readHumid = 0;
-    //readDHT11(&readTemp, &readHumid);
+    readDHT11(&readTemp, &readHumid);
     
     char allBuf[200];
     Serial.printf("Temp:%d, Humid:%d\r\n",readTemp, readHumid);
 
-    snprintf(allBuf, sizeof(allBuf), "http://api.thingspeak.com/update?api_key=&field1=%d&field2=%d", readTemp, readHumid);
-
+    snprintf(allBuf, sizeof(allBuf), "http://api.thingspeak.com/update?api_key=A1QBNUU4080IBIIZ&field1=%d&field2=%d", readTemp, readHumid);
+    
     mClient.begin(allBuf);
     mClient.GET();
     mClient.getString();
@@ -191,4 +220,30 @@ void loop() {
   }
 
   delay(3);
+}
+
+void MQTT_connect() {
+  int8_t ret;
+
+  // Stop if already connected.
+  if (mqtt.connected()) {
+    return;
+  }
+
+  Serial.print("Connecting to MQTT... ");
+
+  uint8_t retries = 3;
+  
+  while ((ret = mqtt.connect()) != 0) { // connect will return 0 for connected
+    Serial.println(mqtt.connectErrorString(ret));
+    Serial.println("Retrying MQTT connection in 5 seconds...");
+    mqtt.disconnect();
+    delay(5000);  // wait 5 seconds
+    retries--;
+    if (retries == 0) {
+      // basically die and wait for WDT to reset me
+      while (1);
+    }
+  }
+  Serial.println("MQTT Connected!");
 }
