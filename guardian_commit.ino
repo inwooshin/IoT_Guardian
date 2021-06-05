@@ -92,6 +92,22 @@ int readDHT11(int *readTemp, int *readHumid){
   return 1;
 }
 
+
+void leftR(){
+    left.write(170);
+    delay(300);
+    left.write(90);
+    delay(300);
+}
+
+void rightR(){
+    right.write(10);
+    delay(300);
+    right.write(90);
+    delay(300);
+  
+}
+
 void setup() {
   Serial.begin(115200);
 
